@@ -143,10 +143,17 @@ details.settings .sec h3{margin:0}
 .row input{flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:7px 10px}
 .code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--sunk);border-radius:6px;padding:6px 10px;font-size:.9rem;word-break:break-all;flex:1;min-width:0;user-select:all}
 .small{font-size:.8rem;color:var(--muted);margin:0}
+/* 背景照片：固定在最底層，上面蓋一層半透明底色讓文字好讀 */
+#bgLayer{position:fixed;inset:0;z-index:-1;background-size:cover;background-position:center;pointer-events:none}
+#bgLayer::after{content:"";position:absolute;inset:0;background:var(--bg);opacity:.6}
+body.has-bg .brand h1,body.has-bg .brand p,body.has-bg .monthnav .label{text-shadow:0 1px 3px var(--bg),0 0 8px var(--bg)}
+.bgthumb{width:72px;height:44px;border-radius:6px;object-fit:cover;border:1px solid var(--line);flex:none}
+.sel{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:6px 10px;color:var(--ink);min-width:0}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
+<div id="bgLayer" hidden></div>
 
 <div id="screenLoading"><div class="spinner" role="status" aria-label="載入中"></div></div>
 
@@ -284,6 +291,32 @@ details.settings .sec h3{margin:0}
           <h3>行事曆上的家人（顏色標籤）</h3>
           <div class="mchips" id="mChips"></div>
           <div class="row"><input id="mNew" maxlength="10" placeholder="例如：阿嬤"><button class="ghost" id="mAdd" type="button">加入</button></div>
+        </div>
+
+        <div class="sec" id="bgSec">
+          <h3>背景照片（全家共用）</h3>
+          <div class="row">
+            <img class="bgthumb" id="bgThumb" alt="目前的背景" hidden>
+            <label class="ghost" for="bgFile" style="cursor:pointer">選擇照片</label>
+            <input type="file" id="bgFile" accept="image/*" hidden>
+            <button class="ghost" type="button" id="bgRemove" hidden>移除背景</button>
+          </div>
+          <p class="small" id="bgMsg">換了之後，全家打開都會看到這張照片。</p>
+        </div>
+
+        <div class="sec" id="pushSec">
+          <h3>行程通知（這台裝置）</h3>
+          <p class="small" id="pushStatus">檢查中…</p>
+          <div class="row" id="pushWhoRow" hidden>
+            <label class="small" for="pushWho">通知哪些行程</label>
+            <select class="sel" id="pushWho"></select>
+          </div>
+          <div class="row">
+            <button class="ghost" type="button" id="pushOn" hidden>開啟通知</button>
+            <button class="ghost" type="button" id="pushTest" hidden>傳送測試通知</button>
+            <button class="ghost" type="button" id="pushOff" hidden>關閉通知</button>
+          </div>
+          <p class="small" id="pushMsg"></p>
         </div>
 
         <div class="sec">

@@ -49,6 +49,7 @@ function render() {
   $("sNet").textContent = (inc - out < 0 ? "−" : "") + money(Math.abs(inc - out));
   $("sEv").textContent = me.length + " 件";
   renderGrid(); renderDay(); renderUpcoming(); renderLedger(mt); renderPeople(); renderInvite();
+  if (!$("pushWhoRow").hidden) renderPushWho();
 }
 
 function renderGrid() {
@@ -271,6 +272,131 @@ function wireApp() {
   try { if (localStorage.getItem("fam-tab") === "led") setTab("led"); } catch (_) {}
 }
 
+/* ---------- 背景照片 ---------- */
+function applyBg(data) {
+  const layer = $("bgLayer");
+  if (data) { layer.style.backgroundImage = `url("${data}")`; layer.hidden = false; document.body.classList.add("has-bg"); $("bgThumb").src = data; }
+  else { layer.style.backgroundImage = ""; layer.hidden = true; document.body.classList.remove("has-bg"); $("bgThumb").removeAttribute("src"); }
+  $("bgThumb").hidden = !data; $("bgRemove").hidden = !data;
+}
+// 壓縮成 JPEG，控制在資料庫單筆上限（約 1MB）以內
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const tries = [[1600, .8], [1400, .7], [1200, .62], [1000, .55], [800, .5]];
+      for (const [max, q] of tries) {
+        const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        const data = c.toDataURL("image/jpeg", q);
+        if (data.length < 850000) return resolve(data);
+      }
+      reject(new Error("照片太大，請換一張"));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("這個檔案無法讀取，請選擇 JPG 或 PNG 照片")); };
+    img.src = url;
+  });
+}
+function wireBg() {
+  $("bgFile").onchange = async e => {
+    const f = e.target.files[0]; e.target.value = "";
+    if (!f) return;
+    $("bgMsg").textContent = "處理中…";
+    try {
+      const data = await compressImage(f);
+      applyBg(data);
+      await store.setBg(data);
+      $("bgMsg").textContent = "已更新背景，全家都會看到。";
+    } catch (err) { $("bgMsg").textContent = err && err.code ? "上傳失敗，請檢查網路後再試。" : (err.message || "上傳失敗"); }
+  };
+  $("bgRemove").onclick = async () => {
+    applyBg(null);
+    try { await store.setBg(null); $("bgMsg").textContent = "已移除背景。"; } catch (_) { $("bgMsg").textContent = "移除失敗，請檢查網路後再試。"; }
+  };
+}
+
+/* ---------- 行程通知（Web Push） ---------- */
+const PUSH = String(window.PUSH_SERVER || "").replace(/\/+$/, "");
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const isStandalone = () => (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+const b64ToU8 = str => { str = str.replace(/-/g, "+").replace(/_/g, "/"); while (str.length % 4) str += "="; return Uint8Array.from(atob(str), c => c.charCodeAt(0)); };
+async function endpointId(ep) {
+  const h = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ep)));
+  return Array.from(h.slice(0, 20), b => b.toString(16).padStart(2, "0")).join("");
+}
+const pushMsg = t => { $("pushMsg").textContent = t || ""; };
+let pushCur = { sub: null, id: null, who: "all" };
+function pushProblem() {
+  if (!store || !store.savePush) return "示範模式不能使用通知，設定好 Firebase 之後就可以。";
+  if (!PUSH) return "還沒設定通知伺服器（config.js 裡的 PUSH_SERVER）。";
+  if (!("serviceWorker" in navigator) || location.protocol !== "https:") return "請用正式網址（https）開啟才能使用通知。";
+  if (isIOS && !isStandalone()) return "iPhone 要先用 Safari 按「分享 → 加入主畫面」，再從主畫面的圖示打開，才能開啟通知（需要 iOS 16.4 以上）。";
+  if (!("PushManager" in window) || !("Notification" in window)) return "這個瀏覽器不支援通知，請改用手機的 Chrome，或 iPhone 加入主畫面後使用。";
+  if (Notification.permission === "denied") return "通知被封鎖了：請到手機的「設定 → 通知」允許這個 App，再回來按一次。";
+  return "";
+}
+function renderPushWho() {
+  const sel = $("pushWho"), keep = pushCur.who || sel.value || "all";
+  sel.innerHTML = `<option value="all">全部行程</option>` + people.map(p => `<option value="${esc(p)}">只有「${esc(p)}」和全家的</option>`).join("");
+  sel.value = [...sel.options].some(o => o.value === keep) ? keep : "all";
+}
+async function refreshPushUI() {
+  ["pushOn", "pushOff", "pushTest", "pushWhoRow"].forEach(id => $(id).hidden = true);
+  const problem = pushProblem();
+  if (problem) { $("pushStatus").textContent = problem; return; }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    pushCur.sub = sub; pushCur.id = sub ? await endpointId(sub.endpoint) : null;
+    renderPushWho(); $("pushWhoRow").hidden = false;
+    if (sub) { $("pushStatus").textContent = "✅ 這台裝置已開啟通知：有填時間的行程，開始前 1 小時通知。"; $("pushOff").hidden = false; $("pushTest").hidden = false; }
+    else { $("pushStatus").textContent = "開啟後，有填時間的行程會在開始前 1 小時通知這台裝置。"; $("pushOn").hidden = false; }
+  } catch (e) { $("pushStatus").textContent = "通知功能暫時無法使用：" + (e.message || e); }
+}
+function wirePush() {
+  $("pushOn").onclick = async () => {
+    pushMsg("開啟中…");
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") { pushMsg("需要允許通知才能開啟。"); return refreshPushUI(); }
+      const r = await fetch(PUSH + "/vapid");
+      if (!r.ok) throw new Error("連不上通知伺服器");
+      const { publicKey } = await r.json();
+      const reg = await navigator.serviceWorker.ready;
+      const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(publicKey) });
+      const j = sub.toJSON(), id = await endpointId(j.endpoint);
+      pushCur.who = $("pushWho").value || "all";
+      await store.savePush(id, { endpoint: j.endpoint, keys: j.keys, who: pushCur.who, device: navigator.userAgent.slice(0, 150), at: Date.now() });
+      await refreshPushUI();
+      pushMsg("已開啟！可以按「傳送測試通知」試試看。");
+    } catch (e) { pushMsg("開啟失敗：" + (e.message || e)); }
+  };
+  $("pushOff").onclick = async () => {
+    try {
+      const id = pushCur.id;
+      if (pushCur.sub) await pushCur.sub.unsubscribe();
+      if (id) await store.delPush(id);
+      pushMsg("已關閉這台裝置的通知。");
+    } catch (e) { pushMsg("關閉失敗：" + (e.message || e)); }
+    refreshPushUI();
+  };
+  $("pushTest").onclick = async () => {
+    pushMsg("傳送中…");
+    try {
+      const r = await fetch(PUSH + "/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fid: famId, id: pushCur.id }) });
+      const j = await r.json().catch(() => ({}));
+      pushMsg(j.ok ? "已送出，幾秒內應該會收到通知。" : "傳送失敗：" + (j.error || ("狀態 " + (j.status || r.status))));
+    } catch (e) { pushMsg("連不上通知伺服器，請稍後再試。"); }
+  };
+  $("pushWho").onchange = async e => {
+    pushCur.who = e.target.value;
+    if (pushCur.id) { try { await store.updatePush(pushCur.id, { who: pushCur.who }); pushMsg("已更新通知範圍。"); } catch (_) { pushMsg("更新失敗，請稍後再試。"); } }
+  };
+}
+
 /* ---------- 示範模式（沒有 Firebase 設定） ---------- */
 function startDemo() {
   const KEY = "family-ledger-demo";
@@ -283,14 +409,17 @@ function startDemo() {
     add(col, data) { (col === "events" ? events : txns).push({ id: newId(), ...data }); persist(); },
     remove(col, id) { const arr = col === "events" ? events : txns; const i = arr.findIndex(x => x.id === id); if (i >= 0) arr.splice(i, 1); persist(); },
     setPeople(list) { people = list; persist(); },
-    importItems(es, ts) { es.forEach(x => events.push({ id: newId(), ...x })); ts.forEach(x => txns.push({ id: newId(), ...x })); persist(); }
+    importItems(es, ts) { es.forEach(x => events.push({ id: newId(), ...x })); ts.forEach(x => txns.push({ id: newId(), ...x })); persist(); },
+    setBg(data) { try { data ? localStorage.setItem("family-ledger-bg", data) : localStorage.removeItem("family-ledger-bg"); } catch (_) { throw new Error("這台裝置的空間不夠存這張照片"); } }
   };
+  try { applyBg(localStorage.getItem("family-ledger-bg")); } catch (_) {}
   famName = "家庭月曆帳本";
   $("whoami").textContent = "示範模式";
   $("inviteSec").hidden = true; $("accountSec").hidden = true;
   show("App");
   notice("示範模式：還沒填入 Firebase 設定，資料只存在這台裝置。照著安裝說明設定好之後，全家就能同步。");
   render();
+  refreshPushUI();
 }
 
 /* ---------- Firebase 模式 ---------- */
@@ -425,8 +554,13 @@ async function startFirebase(cfg) {
           all.slice(i, i + 400).forEach(([col, x]) => batch.set(S.doc(S.collection(famRef, col)), { ...x, createdBy: me.uid }));
           await batch.commit();
         }
-      }
+      },
+      setBg: data => data ? S.setDoc(S.doc(famRef, "settings", "background"), { data, by: me.uid, at: Date.now() }) : S.deleteDoc(S.doc(famRef, "settings", "background")),
+      savePush: (id, data) => S.setDoc(S.doc(famRef, "push", id), { ...data, uid: me.uid, name: me.name }),
+      updatePush: (id, data) => S.updateDoc(S.doc(famRef, "push", id), data),
+      delPush: id => S.deleteDoc(S.doc(famRef, "push", id))
     };
+    unsubs.push(S.onSnapshot(S.doc(famRef, "settings", "background"), snap => applyBg(snap.exists() ? snap.data().data : null), () => {}));
     unsubs.push(S.onSnapshot(famRef, snap => {
       if (!snap.exists()) return;
       const d = snap.data();
@@ -438,6 +572,7 @@ async function startFirebase(cfg) {
         $("acctEmail").textContent = me.email;
         $("inviteSec").hidden = false; $("accountSec").hidden = false;
         show("App"); notice("");
+        refreshPushUI();
         if (memberNames[me.uid] !== me.name) S.updateDoc(famRef, { ["memberNames." + me.uid]: me.name }).catch(() => {});
       }
       render();
@@ -473,6 +608,8 @@ async function startFirebase(cfg) {
 
 /* ---------- 啟動 ---------- */
 wireApp();
+wireBg();
+wirePush();
 const cfg = window.FIREBASE_CONFIG || {};
 if (cfg.apiKey && cfg.projectId) startFirebase(cfg);
 else startDemo();

@@ -1,6 +1,6 @@
 // 離線快取：App 自己的檔案「先連網、失敗才用快取」（更新馬上生效，沒網路也能開）；
 // Firebase 函式庫與字型「先用快取」。家庭資料由 Firebase 自己處理離線，不經過這裡。
-const CACHE = "family-ledger-v2";
+const CACHE = "family-ledger-v3";
 const SHELL = ["./", "./index.html", "./app.js", "./config.js", "./manifest.webmanifest",
   "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
@@ -35,4 +35,22 @@ self.addEventListener("fetch", e => {
       }))
     );
   }
+});
+
+/* 行程通知：收到推播就顯示，點了打開 App */
+self.addEventListener("push", e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (_) { d = { body: e.data ? e.data.text() : "" }; }
+  e.waitUntil(self.registration.showNotification(d.title || "家庭月曆帳本", {
+    body: d.body || "", tag: d.tag || undefined, renotify: !!d.tag,
+    icon: "./icon-192.png", badge: "./icon-192.png", data: { url: d.url || "./" }
+  }));
+});
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  const target = new URL((e.notification.data && e.notification.data.url) || "./", self.registration.scope).href;
+  e.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
+    for (const c of list) if (c.url.startsWith(self.registration.scope) && "focus" in c) return c.focus();
+    return clients.openWindow(target);
+  }));
 });

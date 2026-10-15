@@ -12,3 +12,6 @@ window.FIREBASE_CONFIG = {
   messagingSenderId: "905887933032",
   appId: "1:905887933032:web:12653529e3f5acd22d11dd"
 };
+
+// 行程通知伺服器（Cloudflare Worker 的網址）
+window.PUSH_SERVER = "https://family-notify.dappyer.workers.dev";
