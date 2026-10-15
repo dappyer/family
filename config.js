@@ -5,10 +5,10 @@
 //  還沒貼之前，App 會以「示範模式」執行（資料只存在這台裝置）。
 // ========================================================
 window.FIREBASE_CONFIG = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
+  apiKey: "AIzaSyC9_q4RLTCTL6gVmJAx4VO9L6YoLzkTJ5o",
+  authDomain: "project-test-001-21a35.firebaseapp.com",
+  projectId: "project-test-001-21a35",
+  storageBucket: "project-test-001-21a35.firebasestorage.app",
+  messagingSenderId: "905887933032",
+  appId: "1:905887933032:web:12653529e3f5acd22d11dd"
 };
