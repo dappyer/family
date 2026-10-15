@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>家庭月曆帳本</title>
+<meta name="theme-color" content="#23715F" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121A1C" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="家庭帳本">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Huninn&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+:root{
+  --bg:#F3F6F5; --surface:#FFFFFF; --sunk:#E9EFED; --ink:#1D2A2E; --muted:#5F7176; --line:#D6E0DD;
+  --accent:#23715F; --accent-ink:#FFFFFF; --spend:#B5531F; --earn:#2F6FA8; --today:#FBE7B5; --danger:#B3362B;
+  --m0:#23715F; --m1:#C0582B; --m2:#3A6DB0; --m3:#9A4E9C; --m4:#B08A1E; --m5:#4E8A3A;
+  --display:"Huninn","Noto Sans TC",system-ui,sans-serif;
+  --body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --r:10px; color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#121A1C; --surface:#1A2427; --sunk:#223033; --ink:#E6EEEC; --muted:#9AAEB0; --line:#2E3E41;
+  --accent:#4FB79C; --accent-ink:#0E1A17; --spend:#F08A57; --earn:#78AEE6; --today:#4A3E1C; --danger:#F07A6E;
+  --m0:#4FB79C; --m1:#F08A57; --m2:#78AEE6; --m3:#CF8BD0; --m4:#E0BC55; --m5:#8CC774; color-scheme:dark}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;
+  padding-inline:max(16px,env(safe-area-inset-left));padding-block:calc(env(safe-area-inset-top) + 16px) calc(env(safe-area-inset-bottom) + 40px)}
+[hidden]{display:none!important}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+/* 登入、建立家庭 */
+.gate{max-width:420px;margin:6vh auto 0;display:flex;flex-direction:column;gap:16px}
+.gate .logo{width:64px;height:64px;border-radius:16px}
+.gate h1{font-family:var(--display);font-weight:400;font-size:1.8rem;margin:0;line-height:1.2}
+.gate p.lead{margin:0;color:var(--muted)}
+.gate .card{display:flex;flex-direction:column;gap:12px}
+.field{display:flex;flex-direction:column;gap:4px;font-size:.8rem;color:var(--muted)}
+.field input{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:10px 12px;font-size:1rem;color:var(--ink);width:100%}
+.primary{border:0;background:var(--accent);color:var(--accent-ink);border-radius:8px;padding:11px;font-weight:700;font-size:1rem}
+.primary:disabled{opacity:.5;cursor:not-allowed}
+.linkbtn{border:0;background:none;color:var(--accent);padding:0;font-size:.88rem;text-decoration:underline;text-underline-offset:3px}
+.msg{font-size:.85rem;color:var(--danger);margin:0;min-height:1.2em}
+.msg.ok{color:var(--accent)}
+.or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.8rem}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+.spinner{margin:30vh auto 0;width:36px;height:36px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+.brand h1{font-family:var(--display);font-weight:400;font-size:1.6rem;margin:0;line-height:1.2;text-wrap:balance}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:.85rem}
+.monthnav{display:flex;align-items:center;gap:6px}
+.monthnav .label{min-width:8.5em;text-align:center}
+.monthnav .label b{font-family:var(--display);font-weight:400;font-size:1.25rem;display:block;line-height:1.2}
+.monthnav .label small{color:var(--muted);font-size:.78rem;letter-spacing:.04em}
+.iconbtn{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--surface);font-size:1.15rem;line-height:1}
+.ghost{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;font-size:.88rem}
+.notice{background:var(--sunk);border-radius:var(--r);padding:10px 14px;font-size:.88rem;color:var(--muted)}
+
+.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.summary div{background:var(--surface);padding:12px 14px;min-width:0}
+.summary span{display:block;font-size:.75rem;color:var(--muted);letter-spacing:.06em}
+.summary strong{font-size:1.15rem;font-weight:700;white-space:nowrap}
+.c-spend{color:var(--spend)} .c-earn{color:var(--earn)}
+@media (max-width:560px){.summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.tabs{display:flex;gap:4px;background:var(--sunk);padding:4px;border-radius:999px;width:max-content;max-width:100%}
+.tabs button{border:0;background:transparent;border-radius:999px;padding:7px 20px;font-weight:500;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0/.12)}
+
+.layout{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:860px){.layout{grid-template-columns:minmax(0,1fr)}}
+
+.cal{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.dow,.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.dow div{font-size:.75rem;color:var(--muted);text-align:center;padding:8px 0;border-bottom:1px solid var(--line);letter-spacing:.08em}
+.dow div:first-child,.dow div:last-child{color:var(--spend)}
+.cell{min-height:92px;border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:transparent;text-align:left;padding:6px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.cell:nth-child(7n){border-right:0}
+.cell.out{color:var(--muted);opacity:.45}
+.cell .d{font-size:.85rem;font-weight:500;width:1.8em;height:1.8em;display:grid;place-items:center;border-radius:50%}
+.cell.is-today .d{background:var(--today)}
+.cell.sel{background:var(--sunk)}
+.cell.sel .d{background:var(--accent);color:var(--accent-ink)}
+.chip{font-size:.72rem;line-height:1.3;padding:1px 5px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:color-mix(in srgb,var(--mc) 16%,transparent);border-left:3px solid var(--mc)}
+.more{font-size:.7rem;color:var(--muted)}
+.cell .amt{margin-top:auto;font-size:.72rem;color:var(--spend);text-align:right}
+.dots{display:none;gap:3px;flex-wrap:wrap}
+.dots i{width:6px;height:6px;border-radius:50%;background:var(--mc)}
+@media (max-width:560px){.cell{min-height:60px;padding:4px}.cell .chip,.cell .more{display:none}.dots{display:flex}.cell .amt{font-size:.62rem}}
+
+.sheet{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.card h2{font-family:var(--display);font-weight:400;font-size:1.2rem;margin:0 0 10px;text-wrap:balance}
+.card h3{font-size:.78rem;color:var(--muted);letter-spacing:.08em;margin:14px 0 6px;font-weight:500}
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.list li{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);min-width:0}
+.list li:first-child{border-top:0}
+.list .bar{width:4px;align-self:stretch;border-radius:2px;background:var(--mc);flex:none}
+.list .main{flex:1;min-width:0}
+.list .main b{font-weight:500;display:block;overflow-wrap:anywhere}
+.list .main small{color:var(--muted);font-size:.8rem}
+.list .val{font-weight:700;white-space:nowrap}
+.del{border:0;background:transparent;color:var(--muted);font-size:.78rem;padding:6px 8px;border-radius:6px;white-space:nowrap}
+.del.arm{background:var(--danger);color:#fff}
+.empty{color:var(--muted);font-size:.88rem;margin:4px 0}
+
+.seg{display:flex;gap:4px;margin-bottom:12px}
+.seg button{flex:1;border:1px solid var(--line);background:transparent;border-radius:8px;padding:8px 0;font-size:.9rem}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+form.add{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+form.add label{display:flex;flex-direction:column;gap:4px;font-size:.78rem;color:var(--muted);min-width:0}
+form.add .full{grid-column:1/-1}
+form.add input,form.add select{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:9px 10px;font-size:1rem;color:var(--ink);width:100%;min-width:0}
+form.add .primary{grid-column:1/-1}
+form.add .msg{grid-column:1/-1}
+
+.bars{display:flex;flex-direction:column;gap:8px}
+.brow{display:grid;grid-template-columns:5.5em minmax(0,1fr) auto;gap:10px;align-items:center;font-size:.88rem}
+.btrack{height:10px;background:var(--sunk);border-radius:5px;overflow:hidden}
+.btrack i{display:block;height:100%;background:var(--spend);border-radius:5px}
+.dategroup{font-size:.78rem;color:var(--muted);letter-spacing:.06em;margin:14px 0 2px}
+
+details.settings summary{cursor:pointer;font-weight:500}
+details.settings .sec{border-top:1px solid var(--line);margin-top:14px;padding-top:12px;display:flex;flex-direction:column;gap:8px}
+details.settings .sec h3{margin:0}
+.mchips{display:flex;flex-wrap:wrap;gap:6px}
+.mchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 6px 3px 10px;font-size:.88rem}
+.mchip i{width:9px;height:9px;border-radius:50%;background:var(--mc)}
+.mchip button{border:0;background:transparent;color:var(--muted);padding:0 4px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row input{flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:7px 10px}
+.code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--sunk);border-radius:6px;padding:6px 10px;font-size:.9rem;word-break:break-all;flex:1;min-width:0;user-select:all}
+.small{font-size:.8rem;color:var(--muted);margin:0}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="screenLoading"><div class="spinner" role="status" aria-label="載入中"></div></div>
+
+<!-- 登入 / 註冊 -->
+<main id="screenAuth" class="gate" hidden>
+  <img class="logo" src="icons/icon-192.png" alt="">
+  <h1>家庭月曆帳本</h1>
+  <p class="lead">全家一起看行程、記開銷。先登入或建立帳號。</p>
+  <form class="card" id="authForm" novalidate>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" id="authTabIn" aria-selected="true">登入</button>
+      <button type="button" role="tab" id="authTabUp" aria-selected="false">建立帳號</button>
+    </div>
+    <label class="field" id="aNameWrap" hidden>你的稱呼<input id="aName" maxlength="20" placeholder="例如：媽媽" autocomplete="nickname"></label>
+    <label class="field">Email<input id="aEmail" type="email" autocomplete="email" inputmode="email"></label>
+    <label class="field">密碼<input id="aPass" type="password" autocomplete="current-password" placeholder="至少 6 個字元"></label>
+    <p class="msg" id="aMsg"></p>
+    <button class="primary" id="aSubmit" type="submit">登入</button>
+    <button class="linkbtn" id="aReset" type="button">忘記密碼？</button>
+  </form>
+</main>
+
+<!-- 建立或加入家庭 -->
+<main id="screenFamily" class="gate" hidden>
+  <h1>設定你的家庭</h1>
+  <p class="lead">第一位家人建立家庭，其他人用邀請碼加入。</p>
+  <form class="card" id="joinForm" novalidate>
+    <label class="field">家人給你的邀請碼<input id="jCode" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+    <p class="msg" id="jMsg"></p>
+    <button class="primary" type="submit">加入家庭</button>
+  </form>
+  <div class="or">或</div>
+  <form class="card" id="createForm" novalidate>
+    <label class="field">家庭名稱<input id="cName" maxlength="20" placeholder="例如：王家"></label>
+    <p class="msg" id="cMsg"></p>
+    <button class="primary" type="submit">建立新家庭</button>
+  </form>
+  <button class="linkbtn" id="fLogout" type="button">登出，換一個帳號</button>
+</main>
+
+<!-- 主畫面 -->
+<div class="wrap" id="screenApp" hidden>
+  <header class="top">
+    <div class="brand">
+      <h1 id="famName">家庭月曆帳本</h1>
+      <p id="whoami"></p>
+    </div>
+    <div class="monthnav">
+      <button class="iconbtn" id="prev" aria-label="上個月">‹</button>
+      <div class="label"><b id="mlabel" class="num"></b><small id="roc" class="num"></small></div>
+      <button class="iconbtn" id="next" aria-label="下個月">›</button>
+      <button class="ghost" id="today">今天</button>
+    </div>
+  </header>
+
+  <div class="notice" id="notice" hidden></div>
+
+  <section class="summary num" aria-label="本月總覽">
+    <div><span>本月支出</span><strong class="c-spend" id="sOut">NT$ 0</strong></div>
+    <div><span>本月收入</span><strong class="c-earn" id="sIn">NT$ 0</strong></div>
+    <div><span>結餘</span><strong id="sNet">NT$ 0</strong></div>
+    <div><span>本月活動</span><strong id="sEv">0 件</strong></div>
+  </section>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tabCal" aria-selected="true">行事曆</button>
+    <button role="tab" id="tabLed" aria-selected="false">記帳</button>
+  </div>
+
+  <div class="layout">
+    <div>
+      <div id="calView">
+        <div class="cal">
+          <div class="dow"><div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div></div>
+          <div class="grid" id="grid"></div>
+        </div>
+      </div>
+      <div id="ledView" hidden>
+        <div class="sheet">
+          <div class="card">
+            <h2>支出分類</h2>
+            <div class="bars" id="catBars"></div>
+            <h3>誰付了多少</h3>
+            <div class="bars" id="memBars"></div>
+          </div>
+          <div class="card">
+            <h2>本月明細</h2>
+            <div id="txList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="sheet">
+      <div class="card">
+        <h2 id="dayTitle"></h2>
+        <div id="dayBody"></div>
+      </div>
+
+      <div class="card">
+        <div class="seg" role="group" aria-label="新增類型">
+          <button type="button" data-kind="event" aria-pressed="true">活動</button>
+          <button type="button" data-kind="out" aria-pressed="false">支出</button>
+          <button type="button" data-kind="in" aria-pressed="false">收入</button>
+        </div>
+        <form class="add" id="addForm" novalidate>
+          <label class="full"><span id="fTitleLbl">活動名稱</span><input id="fTitle" maxlength="60"></label>
+          <label id="fAmtWrap" hidden>金額（NT$）<input id="fAmt" type="number" inputmode="numeric" min="1" step="1" placeholder="0"></label>
+          <label id="fCatWrap" hidden>分類<select id="fCat"></select></label>
+          <label>日期<input id="fDate" type="date"></label>
+          <label id="fTimeWrap">時間（可不填）<input id="fTime" type="time"></label>
+          <label><span id="fWhoLbl">誰的行程</span><select id="fWho"></select></label>
+          <p class="msg" id="fMsg"></p>
+          <button class="primary" id="fSubmit" type="submit">新增活動</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>接下來兩週</h2>
+        <ul class="list" id="upList"></ul>
+      </div>
+
+      <details class="settings card">
+        <summary>設定與邀請家人</summary>
+
+        <div class="sec" id="inviteSec">
+          <h3>邀請家人</h3>
+          <p class="small">把邀請碼或連結傳給家人，他們建立帳號後貼上就能加入。</p>
+          <div class="row"><span class="code" id="invCode"></span><button class="ghost" type="button" id="copyCode">複製邀請碼</button></div>
+          <div class="row"><button class="ghost" type="button" id="copyLink">複製邀請連結</button><span class="small" id="copyMsg"></span></div>
+          <p class="small" id="famCount"></p>
+        </div>
+
+        <div class="sec">
+          <h3>行事曆上的家人（顏色標籤）</h3>
+          <div class="mchips" id="mChips"></div>
+          <div class="row"><input id="mNew" maxlength="10" placeholder="例如：阿嬤"><button class="ghost" id="mAdd" type="button">加入</button></div>
+        </div>
+
+        <div class="sec">
+          <h3>備份</h3>
+          <div class="row">
+            <button class="ghost" type="button" id="exportBtn">下載備份檔</button>
+            <label class="ghost" for="importFile" style="cursor:pointer">匯入備份檔</label>
+            <input type="file" id="importFile" accept=".json,application/json" hidden>
+          </div>
+          <p class="small" id="ioMsg"></p>
+        </div>
+
+        <div class="sec" id="accountSec">
+          <h3>帳號</h3>
+          <div class="row"><span class="small" id="acctEmail"></span><button class="ghost" type="button" id="logoutBtn">登出</button></div>
+        </div>
+      </details>
+    </aside>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
