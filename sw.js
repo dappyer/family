@@ -1,8 +1,8 @@
 // 離線快取：App 自己的檔案「先連網、失敗才用快取」（更新馬上生效，沒網路也能開）；
 // Firebase 函式庫與字型「先用快取」。家庭資料由 Firebase 自己處理離線，不經過這裡。
-const CACHE = "family-ledger-v1";
+const CACHE = "family-ledger-v2";
 const SHELL = ["./", "./index.html", "./app.js", "./config.js", "./manifest.webmanifest",
-  "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png"];
+  "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
